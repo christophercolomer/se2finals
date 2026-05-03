@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StudyFlow — Session Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0e0f14;
+    --surface: #16181f;
+    --surface2: #1e2029;
+    --border: #2a2d38;
+    --accent: #7c6ef5;
+    --accent2: #f5a623;
+    --accent3: #4ecdc4;
+    --text: #e8e9f0;
+    --muted: #6b6f82;
+    --danger: #f05a5a;
+    --success: #5af07d;
+    --radius: 16px;
+    --shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise overlay ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.35;
+  }
+
+  /* ── Grid background ── */
+  .grid-bg {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(rgba(124,110,245,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,110,245,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* ── Screen management ── */
+  .screen { display: none; min-height: 100vh; position: relative; z-index: 1; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+  /* ── Shared card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 480px;
+    animation: slideUp 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes slideUp {
+    from { opacity:0; transform: translateY(24px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  /* ── Typography ── */
+  .serif { font-family: 'DM Serif Display', serif; }
+  .mono  { font-family: 'DM Mono', monospace; }
+  h1.logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.4rem;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  h2.title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.7rem; margin-bottom: 0.25rem;
+  }
+  .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 1.5rem; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    width: 100%; padding: 0.85rem 1.25rem;
+    border: none; border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 500;
+    cursor: pointer; transition: all 0.18s ease;
+    letter-spacing: 0.01em;
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+  }
+  .btn-primary:hover { background: #9585f8; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(124,110,245,0.35); }
+  .btn-secondary {
+    background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-ghost {
+    background: transparent; color: var(--muted); border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #f57070; }
+  .btn-success { background: var(--success); color: #0e0f14; }
+  .btn-success:hover { filter: brightness(1.1); }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+  .btn-row { display: flex; gap: 0.75rem; }
+  .btn-row .btn { flex: 1; }
+
+  /* ── Pill tabs ── */
+  .tab-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .tab {
+    flex: 1; padding: 0.65rem; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--muted); cursor: pointer; font-size: 0.875rem;
+    font-family: 'DM Sans', sans-serif; transition: all 0.18s;
+    text-align: center;
+  }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ── Subject grid ── */
+  .subject-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1rem; }
+  .subject-btn {
+    padding: 0.7rem; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text);
+    cursor: pointer; font-size: 0.85rem; font-family: 'DM Sans', sans-serif;
+    transition: all 0.18s; text-align: center;
+  }
+  .subject-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .subject-btn.selected { border-color: var(--accent); background: rgba(124,110,245,0.15); color: var(--accent); }
+
+  /* ── Custom input ── */
+  .input-group { margin-bottom: 1rem; }
+  .input-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; display: block; }
+  .input {
+    width: 100%; padding: 0.75rem 1rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
+    outline: none; transition: border-color 0.18s;
+  }
+  .input:focus { border-color: var(--accent); }
+  .input::placeholder { color: var(--muted); }
+
+  /* ── Timer display ── */
+  .timer-wrap {
+    text-align: center; padding: 2rem 0;
+  }
+  .timer-subject {
+    font-size: 0.9rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.1em; margin-bottom: 0.5rem;
+  }
+  .timer-session-type {
+    font-size: 0.75rem; color: var(--accent); text-transform: uppercase;
+    letter-spacing: 0.12em; margin-bottom: 1.5rem;
+    font-family: 'DM Mono', monospace;
+  }
+  .timer-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 5rem; font-weight: 500;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--text), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1; margin-bottom: 2rem;
+    transition: all 0.3s;
+  }
+  .timer-display.pulse { animation: timerPulse 0.5s ease; }
+  @keyframes timerPulse {
+    0%,100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+
+  /* ── Progress ring ── */
+  .progress-ring-wrap {
+    position: relative; display: inline-flex;
+    align-items: center; justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+  .progress-ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: var(--surface2); stroke-width: 4; }
+  .ring-fg { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round;
+    transition: stroke-dashoffset 1s linear; }
+  .ring-inner {
+    position: absolute; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+
+  /* ── Status badge ── */
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.75rem; border-radius: 999px;
+    font-size: 0.78rem; font-family: 'DM Mono', monospace;
+    margin-bottom: 1rem;
+  }
+  .status-badge.idle { background: rgba(107,111,130,0.2); color: var(--muted); }
+  .status-badge.running { background: rgba(90,240,125,0.15); color: var(--success); }
+  .status-badge.paused { background: rgba(245,166,35,0.15); color: var(--accent2); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .dot.blink { animation: blink 1s ease infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── Motivation pop ── */
+  .motivation-msg {
+    min-height: 1.5rem; text-align: center;
+    font-size: 0.875rem; color: var(--accent3);
+    font-style: italic; margin-top: 0.75rem;
+    transition: opacity 0.4s;
+  }
+
+  /* ── Summary ── */
+  .summary-stat {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .summary-stat-label { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem; }
+  .summary-stat-value { font-family: 'DM Mono', monospace; font-size: 1.3rem; color: var(--text); }
+  .summary-stat-value.accent { color: var(--accent); }
+  .summary-stat-value.gold { color: var(--accent2); }
+
+  /* ── Toast ── */
+  #toast-container {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+    z-index: 9998; display: flex; flex-direction: column; gap: 0.5rem;
+    align-items: center; pointer-events: none;
+  }
+  .toast {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 0.6rem 1.2rem;
+    font-size: 0.875rem; color: var(--text);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    animation: toastIn 0.3s ease;
+    white-space: nowrap;
+  }
+  @keyframes toastIn {
+    from { opacity:0; transform: translateY(12px) scale(0.95); }
+    to   { opacity:1; transform: translateY(0) scale(1); }
+  }
+  .toast.out { animation: toastOut 0.3s ease forwards; }
+  @keyframes toastOut {
+    to { opacity:0; transform: translateY(-8px) scale(0.95); }
+  }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+
+  /* ── UML Screen ── */
+  #screen-uml { padding: 2rem 1rem; align-items: flex-start; overflow-y: auto; }
+  .uml-back { position: fixed; top: 1rem; left: 1rem; z-index: 100; width: auto; padding: 0.5rem 1rem; }
+  .uml-wrap { max-width: 860px; width: 100%; margin: 0 auto; }
+  .uml-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.5rem;
+    box-shadow: var(--shadow); margin-bottom: 1.5rem;
+    animation: slideUp 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  .uml-title {
+    font-family: 'DM Serif Display', serif; font-size: 1.3rem;
+    margin-bottom: 1rem; color: var(--accent);
+  }
+  .uml-class-box {
+    background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: 10px; overflow: hidden; font-family: 'DM Mono', monospace;
+    font-size: 0.78rem; flex: 1; min-width: 180px;
+  }
+  .uml-class-name {
+    background: var(--accent); color: #fff;
+    padding: 0.5rem 0.75rem; font-weight: 500; font-size: 0.82rem;
+  }
+  .uml-class-name.abstract { background: var(--muted); font-style: italic; }
+  .uml-class-name.parent { background: #5a7df5; }
+  .uml-class-name.child { background: var(--accent3); color: #0e0f14; }
+  .uml-section { padding: 0.4rem 0.75rem; border-top: 1px solid var(--border); }
+  .uml-section-label {
+    font-size: 0.68rem; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 0.25rem;
+  }
+  .uml-field { color: var(--text); line-height: 1.7; font-size: 0.75rem; }
+  .uml-field.private { color: #f07070; }
+  .uml-field.public { color: var(--success); }
+  .uml-field.abstract-m { color: var(--accent2); font-style: italic; }
+  .uml-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .uml-arrow {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; color: var(--muted); padding: 0 0.5rem;
+  }
+  .uml-legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.75rem; }
+  .uml-legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--muted); }
+  .uml-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* ── History screen ── */
+  .history-list { display: flex; flex-direction: column; gap: 0.6rem; max-height: 320px; overflow-y: auto; }
+  .history-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.75rem 1rem;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.875rem;
+  }
+  .history-item-left { display: flex; flex-direction: column; gap: 0.2rem; }
+  .history-item-subject { font-weight: 500; }
+  .history-item-type { font-size: 0.75rem; color: var(--muted); }
+  .history-item-time { font-family: 'DM Mono', monospace; color: var(--accent); font-size: 0.9rem; }
+  .empty-state { text-align: center; color: var(--muted); padding: 2rem; font-size: 0.875rem; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+  /* ── Nav header ── */
+  .app-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.5rem;
+    background: rgba(14,15,20,0.8); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(42,45,56,0.6);
+  }
+  .nav-logo { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--accent); }
+  .nav-uml-btn {
+    font-size: 0.78rem; color: var(--muted); cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 0.35rem 0.75rem; border-radius: 6px; transition: all 0.18s;
+  }
+  .nav-uml-btn:hover { color: var(--text); border-color: var(--muted); }
+
+  /* screen top padding for nav */
+  .padded-top { padding-top: 5rem; }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div id="toast-container"></div>
+
+<!-- NAV (visible on main screens) -->
+<nav class="app-nav" id="app-nav">
+  <span class="nav-logo">StudyFlow</span>
+  <button class="nav-uml-btn" onclick="showUML()">📐 View UML</button>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 1 — HOME
+══════════════════════════════════════════ -->
+<div id="screen-home" class="screen active padded-top">
+  <div class="card">
+    <div style="text-align:center; margin-bottom: 2rem;">
+      <div style="font-size:2.5rem; margin-bottom:0.5rem;">📚</div>
+      <h1 class="logo">StudyFlow</h1>
+      <p class="subtitle" style="margin-top:0.5rem;">Your guided study experience</p>
+    </div>
+
+    <div id="home-streak" style="
+      background: rgba(124,110,245,0.1); border: 1px solid rgba(124,110,245,0.3);
+      border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.5rem;
+      font-size: 0.85rem; text-align:center; color: var(--accent);
+    ">
+      🔥 <span id="streak-text">Start your first session today!</span>
+    </div>
+
+    <button class="btn btn-primary" onclick="showSetup()">
+      ➕ &nbsp; Add Session
+    </button>
+    <div style="height: 0.75rem;"></div>
+    <button class="btn btn-secondary" onclick="showHistory()">
+      📜 &nbsp; View History
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 2 — SETUP
+══════════════════════════════════════════ -->
+<div id="screen-setup" class="screen padded-top">
+  <div class="card">
+    <h2 class="title">New Session</h2>
+    <p class="subtitle">What kind of studying are you doing?</p>
+
+    <div class="tab-row">
+      <button class="tab active" id="tab-academic" onclick="switchType('academic')">📘 Academic</button>
+      <button class="tab" id="tab-skill" onclick="switchType('skill')">🎯 Skill</button>
+    </div>
+
+    <div id="academic-subjects" class="subject-grid">
+      <button class="subject-btn" onclick="selectSubject(this, 'Mathematics')">📐 Math</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'Science')">🔬 Science</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'History')">📜 History</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'English')">✍️ English</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'Filipino')">🇵🇭 Filipino</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'MAPEH')">🎵 MAPEH</button>
+    </div>
+
+    <div id="skill-subjects" class="subject-grid" style="display:none;">
+      <button class="subject-btn" onclick="selectSubject(this, 'Coding')">💻 Coding</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'Drawing')">🎨 Drawing</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'Music')">🎸 Music</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'Writing')">✒️ Writing</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'Chess')">♟️ Chess</button>
+      <button class="subject-btn" onclick="selectSubject(this, 'Language')">🗣️ Language</button>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="input-group">
+      <label class="input-label">Or type a custom subject</label>
+      <input type="text" class="input" id="custom-subject" placeholder="e.g. Quantum Physics…" oninput="onCustomInput()" />
+    </div>
+
+    <div class="btn-row" style="margin-top:0.5rem;">
+      <button class="btn btn-ghost" onclick="showHome()">← Back</button>
+      <button class="btn btn-primary" id="start-btn" onclick="startSession()" disabled>Start →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 3 — TIMER
+══════════════════════════════════════════ -->
+<div id="screen-timer" class="screen padded-top">
+  <div class="card">
+    <div class="timer-wrap">
+      <div class="timer-subject" id="timer-subject">–</div>
+      <div class="timer-session-type" id="timer-type">–</div>
+
+      <div class="progress-ring-wrap">
+        <svg width="160" height="160" viewBox="0 0 160 160">
+          <circle class="ring-bg" cx="80" cy="80" r="70"/>
+          <circle class="ring-fg" id="ring-fg" cx="80" cy="80" r="70"
+            stroke-dasharray="439.82" stroke-dashoffset="439.82"/>
+        </svg>
+        <div class="ring-inner">
+          <div class="timer-display" id="timer-display" style="font-size:2.4rem; background:none; -webkit-text-fill-color: var(--text);">00:00</div>
+        </div>
+      </div>
+
+      <div id="status-badge-wrap">
+        <span class="status-badge idle" id="status-badge">
+          <span class="dot"></span> Idle
+        </span>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-bottom:0.75rem;">
+      <button class="btn btn-primary" id="btn-start" onclick="timerStart()">▶ Start</button>
+      <button class="btn btn-secondary" id="btn-pause" onclick="timerPause()" disabled>⏸ Pause</button>
+    </div>
+    <button class="btn btn-danger" id="btn-end" onclick="endSession()" disabled>⏹ End Session</button>
+
+    <div class="motivation-msg" id="motivation-msg"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 4 — SUMMARY
+══════════════════════════════════════════ -->
+<div id="screen-summary" class="screen padded-top">
+  <div class="card">
+    <div style="text-align:center; margin-bottom:1.5rem;">
+      <div style="font-size:2.5rem;">🎉</div>
+      <h2 class="title" style="margin-top:0.5rem;">Session Complete!</h2>
+    </div>
+
+    <div class="summary-stat">
+      <div class="summary-stat-label">Subject studied</div>
+      <div class="summary-stat-value accent" id="sum-subject">–</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-label">Session type</div>
+      <div class="summary-stat-value" id="sum-type">–</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-label">Total time</div>
+      <div class="summary-stat-value gold" id="sum-time">–</div>
+    </div>
+    <div class="summary-stat">
+      <div class="summary-stat-label">Motivation points</div>
+      <div class="summary-stat-value" id="sum-points">–</div>
+    </div>
+
+    <div id="sum-feedback" style="
+      background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.3);
+      border-radius: 10px; padding: 0.75rem 1rem; margin: 1rem 0;
+      font-size: 0.875rem; color: var(--accent3); text-align:center;
+    "></div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="showHome()">🏠 Home</button>
+      <button class="btn btn-primary" onclick="showSetup()">➕ New Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 5 — HISTORY
+══════════════════════════════════════════ -->
+<div id="screen-history" class="screen padded-top">
+  <div class="card">
+    <h2 class="title">Session History</h2>
+    <p class="subtitle">Your past study sessions</p>
+    <div class="history-list" id="history-list"></div>
+    <div style="height:0.75rem;"></div>
+    <button class="btn btn-ghost" onclick="showHome()">← Back</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 6 — UML DIAGRAM
+══════════════════════════════════════════ -->
+<div id="screen-uml" class="screen">
+  <button class="btn btn-ghost uml-back" style="width:auto;" onclick="hideUML()">← Back</button>
+  <div class="uml-wrap" style="padding:5rem 1rem 2rem;">
+
+    <div class="uml-card">
+      <div class="uml-title">📐 UML Class Diagram — StudyFlow</div>
+      <p style="font-size:0.825rem; color:var(--muted); margin-bottom:1.5rem;">
+        Demonstrates Abstraction, Encapsulation, Inheritance, and Polymorphism.
+      </p>
+
+      <!-- Abstract -->
+      <div style="margin-bottom:0.5rem; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Abstract Class</div>
+      <div class="uml-row" style="justify-content:center; margin-bottom:0.5rem;">
+        <div class="uml-class-box" style="max-width:320px;">
+          <div class="uml-class-name abstract">«abstract» StudySession</div>
+          <div class="uml-section">
+            <div class="uml-section-label">Attributes (private)</div>
+            <div class="uml-field private">- subject: string</div>
+            <div class="uml-field private">- startTime: Date | null</div>
+            <div class="uml-field private">- endTime: Date | null</div>
+            <div class="uml-field private">- elapsedSeconds: number</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-section-label">Methods (public)</div>
+            <div class="uml-field public">+ getSubject(): string</div>
+            <div class="uml-field public">+ getElapsed(): number</div>
+            <div class="uml-field public">+ start(): void</div>
+            <div class="uml-field public">+ pause(): void</div>
+            <div class="uml-field public">+ end(): void</div>
+            <div class="uml-field abstract-m">+ getSessionType(): string  «abstract»</div>
+            <div class="uml-field abstract-m">+ getSummary(): string  «abstract»</div>
+            <div class="uml-field abstract-m">+ getMotivation(): string  «abstract»</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrows down -->
+      <div class="uml-row" style="justify-content:center; margin:0;">
+        <div class="uml-arrow" style="font-size:1.2rem;">▼ extends &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; extends ▼</div>
+      </div>
+
+      <!-- Two parent classes -->
+      <div style="margin-bottom:0.5rem; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Parent Classes</div>
+      <div class="uml-row" style="justify-content:center; margin-bottom:0.5rem;">
+        <div class="uml-class-box">
+          <div class="uml-class-name parent">AcademicSession</div>
+          <div class="uml-section">
+            <div class="uml-field private">- subject: string (override)</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-field public">+ getSessionType(): string</div>
+            <div class="uml-field public">+ getSummary(): string</div>
+            <div class="uml-field public">+ getMotivation(): string</div>
+            <div class="uml-field public">+ getSubjectIcon(): string</div>
+          </div>
+        </div>
+        <div class="uml-class-box">
+          <div class="uml-class-name parent">SkillSession</div>
+          <div class="uml-section">
+            <div class="uml-field private">- skillLevel: string</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-field public">+ getSessionType(): string</div>
+            <div class="uml-field public">+ getSummary(): string</div>
+            <div class="uml-field public">+ getMotivation(): string</div>
+            <div class="uml-field public">+ getSkillLevel(): string</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrows down -->
+      <div class="uml-row" style="justify-content:center;">
+        <div class="uml-arrow">▼ extends</div>
+        <div style="flex:0.5;"></div>
+        <div class="uml-arrow">▼ extends</div>
+      </div>
+
+      <!-- 4 child classes -->
+      <div style="margin-bottom:0.5rem; font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Child Classes (Polymorphism: override getMotivation())</div>
+      <div class="uml-row" style="justify-content:center;">
+        <div class="uml-class-box">
+          <div class="uml-class-name child">STEMSession</div>
+          <div class="uml-section">
+            <div class="uml-field private">- difficulty: string</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-field public">+ getMotivation(): string</div>
+            <div class="uml-field public">+ getDifficulty(): string</div>
+          </div>
+        </div>
+        <div class="uml-class-box">
+          <div class="uml-class-name child">HumanitiesSession</div>
+          <div class="uml-section">
+            <div class="uml-field private">- theme: string</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-field public">+ getMotivation(): string</div>
+            <div class="uml-field public">+ getTheme(): string</div>
+          </div>
+        </div>
+        <div class="uml-class-box">
+          <div class="uml-class-name child">TechnicalSkill</div>
+          <div class="uml-section">
+            <div class="uml-field private">- tool: string</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-field public">+ getMotivation(): string</div>
+            <div class="uml-field public">+ getTool(): string</div>
+          </div>
+        </div>
+        <div class="uml-class-box">
+          <div class="uml-class-name child">CreativeSkill</div>
+          <div class="uml-section">
+            <div class="uml-field private">- medium: string</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-field public">+ getMotivation(): string</div>
+            <div class="uml-field public">+ getMedium(): string</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SessionManager -->
+      <hr class="divider" />
+      <div class="uml-row" style="justify-content:center;">
+        <div class="uml-class-box" style="max-width:320px;">
+          <div class="uml-class-name" style="background:#2a5298;">SessionManager</div>
+          <div class="uml-section">
+            <div class="uml-field private">- sessions: StudySession[]</div>
+            <div class="uml-field private">- activeSession: StudySession | null</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-field public">+ addSession(s: StudySession): void</div>
+            <div class="uml-field public">+ getHistory(): StudySession[]</div>
+            <div class="uml-field public">+ getActive(): StudySession | null</div>
+            <div class="uml-field public">+ getTotalTime(): number</div>
+          </div>
+        </div>
+        <div class="uml-class-box" style="max-width:320px;">
+          <div class="uml-class-name" style="background:#1a6b5c;">TimerController</div>
+          <div class="uml-section">
+            <div class="uml-field private">- session: StudySession | null</div>
+            <div class="uml-field private">- intervalId: number | null</div>
+            <div class="uml-field private">- motivationInterval: number | null</div>
+          </div>
+          <div class="uml-section">
+            <div class="uml-field public">+ bind(s: StudySession): void</div>
+            <div class="uml-field public">+ start(): void</div>
+            <div class="uml-field public">+ pause(): void</div>
+            <div class="uml-field public">+ stop(): number</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="uml-legend">
+        <div class="uml-legend-item"><div class="uml-dot" style="background:var(--muted);"></div> Abstract</div>
+        <div class="uml-legend-item"><div class="uml-dot" style="background:#5a7df5;"></div> Parent</div>
+        <div class="uml-legend-item"><div class="uml-dot" style="background:var(--accent3);"></div> Child</div>
+        <div class="uml-legend-item" style="color:#f07070;">— private</div>
+        <div class="uml-legend-item" style="color:var(--success);">+ public</div>
+        <div class="uml-legend-item" style="color:var(--accent2);font-style:italic;">~ abstract method</div>
+      </div>
+    </div>
+
+    <!-- OOP Principles card -->
+    <div class="uml-card">
+      <div class="uml-title">🧠 OOP Principles in This App</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; font-size:0.83rem;">
+        <div style="background:var(--surface2); border-radius:10px; padding:1rem; border:1px solid var(--border);">
+          <div style="color:var(--accent); font-weight:600; margin-bottom:0.4rem;">🔒 Encapsulation</div>
+          All attributes are <code style="color:var(--danger);">private</code>. Access only via getters/setters. UI never touches raw data directly.
+        </div>
+        <div style="background:var(--surface2); border-radius:10px; padding:1rem; border:1px solid var(--border);">
+          <div style="color:#5af07d; font-weight:600; margin-bottom:0.4rem;">🧬 Inheritance</div>
+          <code>StudySession</code> (abstract) → <code>AcademicSession</code> / <code>SkillSession</code> → 4 child classes, sharing common behavior.
+        </div>
+        <div style="background:var(--surface2); border-radius:10px; padding:1rem; border:1px solid var(--border);">
+          <div style="color:var(--accent2); font-weight:600; margin-bottom:0.4rem;">🎭 Polymorphism</div>
+          Each child class overrides <code>getMotivation()</code> with unique messages. Timer calls the same method, different results per class.
+        </div>
+        <div style="background:var(--surface2); border-radius:10px; padding:1rem; border:1px solid var(--border);">
+          <div style="color:var(--accent3); font-weight:600; margin-bottom:0.4rem;">🌫️ Abstraction</div>
+          <code>StudySession</code> is abstract — forces child classes to implement <code>getSessionType()</code>, <code>getSummary()</code>, <code>getMotivation()</code>.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+  TypeScript-style OOP (compiled inline as JS)
+══════════════════════════════════════════ -->
+<script>
+"use strict";
+
+// ═══════════════════════════════════════════════
+// ABSTRACT CLASS — StudySession
+// (Abstraction + Encapsulation base)
+// ═══════════════════════════════════════════════
+class StudySession {
+  #subject;        // private
+  #startTime;      // private
+  #endTime;        // private
+  #elapsedSeconds; // private
+
+  constructor(subject) {
+    if (new.target === StudySession) {
+      throw new Error("StudySession is abstract and cannot be instantiated directly.");
+    }
+    this.#subject        = subject;
+    this.#startTime      = null;
+    this.#endTime        = null;
+    this.#elapsedSeconds = 0;
+  }
+
+  // ── Getters (Encapsulation) ──
+  getSubject()  { return this.#subject; }
+  getElapsed()  { return this.#elapsedSeconds; }
+  getStartTime(){ return this.#startTime; }
+  getEndTime()  { return this.#endTime; }
+
+  // ── Setters (Encapsulation) ──
+  setElapsed(s) { this.#elapsedSeconds = s; }
+
+  // ── Concrete methods ──
+  start() {
+    this.#startTime = new Date();
+  }
+  pause() { /* state tracked by TimerController */ }
+  end() {
+    this.#endTime = new Date();
+  }
+
+  // ── Abstract methods (must be overridden) ──
+  getSessionType() { throw new Error("getSessionType() must be implemented"); }
+  getSummary()     { throw new Error("getSummary() must be implemented"); }
+  getMotivation()  { throw new Error("getMotivation() must be implemented"); }
+}
+
+
+// ═══════════════════════════════════════════════
+// PARENT CLASS 1 — AcademicSession
+// (Inheritance from StudySession)
+// ═══════════════════════════════════════════════
+class AcademicSession extends StudySession {
+  #subjectIcon; // private
+
+  constructor(subject, icon = "📘") {
+    super(subject);
+    this.#subjectIcon = icon;
+  }
+
+  // Getters
+  getSubjectIcon() { return this.#subjectIcon; }
+
+  // Override abstract methods (Polymorphism base)
+  getSessionType() { return "Academic Session"; }
+
+  getSummary() {
+    return `Studied ${this.getSubject()} for ${formatTime(this.getElapsed())}. Academic focus completed.`;
+  }
+
+  getMotivation() {
+    return "Knowledge is the foundation of everything. Keep studying! 📘";
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// PARENT CLASS 2 — SkillSession
+// (Inheritance from StudySession)
+// ═══════════════════════════════════════════════
+class SkillSession extends StudySession {
+  #skillLevel; // private
+
+  constructor(subject, skillLevel = "Beginner") {
+    super(subject);
+    this.#skillLevel = skillLevel;
+  }
+
+  // Getters / Setters
+  getSkillLevel()    { return this.#skillLevel; }
+  setSkillLevel(lvl) { this.#skillLevel = lvl; }
+
+  // Override abstract methods (Polymorphism base)
+  getSessionType() { return "Skill Session"; }
+
+  getSummary() {
+    return `Practiced ${this.getSubject()} (${this.#skillLevel}) for ${formatTime(this.getElapsed())}.`;
+  }
+
+  getMotivation() {
+    return "Skills are built one rep at a time. Keep practicing! 🎯";
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// CHILD CLASS 1 — STEMSession (extends AcademicSession)
+// Polymorphism: overrides getMotivation()
+// ═══════════════════════════════════════════════
+class STEMSession extends AcademicSession {
+  #difficulty; // private
+
+  constructor(subject, difficulty = "Medium") {
+    super(subject, "🔬");
+    this.#difficulty = difficulty;
+  }
+
+  getDifficulty()    { return this.#difficulty; }
+  setDifficulty(d)   { this.#difficulty = d; }
+
+  // POLYMORPHISM — different motivation for STEM
+  getMotivation() {
+    const msgs = [
+      "Every equation solved is a victory! 🧪",
+      "STEM minds shape the future. You're doing great! 🚀",
+      "One problem at a time — science works like that! ⚗️",
+      "Numbers never lie. Keep crunching! 📊",
+    ];
+    return msgs[Math.floor(Math.random() * msgs.length)];
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// CHILD CLASS 2 — HumanitiesSession (extends AcademicSession)
+// Polymorphism: overrides getMotivation()
+// ═══════════════════════════════════════════════
+class HumanitiesSession extends AcademicSession {
+  #theme; // private
+
+  constructor(subject, theme = "General") {
+    super(subject, "📜");
+    this.#theme = theme;
+  }
+
+  getTheme()    { return this.#theme; }
+  setTheme(t)   { this.#theme = t; }
+
+  // POLYMORPHISM — different motivation for Humanities
+  getMotivation() {
+    const msgs = [
+      "Words and history make us human. Keep reading! 📚",
+      "Every story you read expands your world! ✨",
+      "Language is power. Master it! ✍️",
+      "The past teaches the future — study well! 🏛️",
+    ];
+    return msgs[Math.floor(Math.random() * msgs.length)];
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// CHILD CLASS 3 — TechnicalSkill (extends SkillSession)
+// Polymorphism: overrides getMotivation()
+// ═══════════════════════════════════════════════
+class TechnicalSkill extends SkillSession {
+  #tool; // private
+
+  constructor(subject, tool = "General") {
+    super(subject, "Intermediate");
+    this.#tool = tool;
+  }
+
+  getTool()  { return this.#tool; }
+  setTool(t) { this.#tool = t; }
+
+  // POLYMORPHISM — different motivation for Technical skills
+  getMotivation() {
+    const msgs = [
+      "Every bug fixed makes you a better developer! 💻",
+      "Code is just logic — and you've got it! ⚡",
+      "Build, break, fix, repeat. That's the craft! 🛠️",
+      "One more function and you'll nail it! 🔧",
+    ];
+    return msgs[Math.floor(Math.random() * msgs.length)];
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// CHILD CLASS 4 — CreativeSkill (extends SkillSession)
+// Polymorphism: overrides getMotivation()
+// ═══════════════════════════════════════════════
+class CreativeSkill extends SkillSession {
+  #medium; // private
+
+  constructor(subject, medium = "Mixed") {
+    super(subject, "Explorer");
+    this.#medium = medium;
+  }
+
+  getMedium()  { return this.#medium; }
+  setMedium(m) { this.#medium = m; }
+
+  // POLYMORPHISM — different motivation for Creative skills
+  getMotivation() {
+    const msgs = [
+      "Creativity grows when you practice it daily! 🎨",
+      "Every stroke, note, or word is progress! 🎵",
+      "Art is never wasted effort — keep creating! ✨",
+      "Your creative voice is unique. Use it! 🌟",
+    ];
+    return msgs[Math.floor(Math.random() * msgs.length)];
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// SESSION MANAGER (Business Logic — separated from UI)
+// ═══════════════════════════════════════════════
+class SessionManager {
+  #sessions;       // private
+  #activeSession;  // private
+
+  constructor() {
+    this.#sessions      = [];
+    this.#activeSession = null;
+  }
+
+  addSession(session) {
+    this.#sessions.push(session);
+    this.#activeSession = session;
+  }
+
+  finishActive() {
+    this.#activeSession = null;
+  }
+
+  getHistory()     { return [...this.#sessions]; }
+  getActive()      { return this.#activeSession; }
+  getCount()       { return this.#sessions.length; }
+
+  getTotalTime() {
+    return this.#sessions.reduce((sum, s) => sum + s.getElapsed(), 0);
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// TIMER CONTROLLER (Business Logic)
+// ═══════════════════════════════════════════════
+class TimerController {
+  #session;             // private
+  #intervalId;          // private
+  #motivationInterval;  // private
+  #running;             // private
+  #onTick;              // private callback
+  #onMotivation;        // private callback
+
+  constructor(onTick, onMotivation) {
+    this.#session            = null;
+    this.#intervalId         = null;
+    this.#motivationInterval = null;
+    this.#running            = false;
+    this.#onTick             = onTick;
+    this.#onMotivation       = onMotivation;
+  }
+
+  bind(session) { this.#session = session; }
+
+  isRunning() { return this.#running; }
+
+  start() {
+    if (this.#running || !this.#session) return;
+    this.#running = true;
+    this.#session.start();
+
+    this.#intervalId = setInterval(() => {
+      const elapsed = this.#session.getElapsed() + 1;
+      this.#session.setElapsed(elapsed);
+      this.#onTick(elapsed);
+    }, 1000);
+
+    // Motivational message every 60s (polymorphism in action!)
+    this.#motivationInterval = setInterval(() => {
+      this.#onMotivation(this.#session.getMotivation());
+    }, 60000);
+  }
+
+  pause() {
+    if (!this.#running) return;
+    this.#running = false;
+    clearInterval(this.#intervalId);
+    clearInterval(this.#motivationInterval);
+  }
+
+  stop() {
+    this.pause();
+    if (this.#session) this.#session.end();
+    const elapsed = this.#session ? this.#session.getElapsed() : 0;
+    return elapsed;
+  }
+
+  reset() {
+    this.stop();
+    this.#session = null;
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// TOAST MANAGER (UI utility)
+// ═══════════════════════════════════════════════
+class ToastManager {
+  #container; // private
+
+  constructor(containerId) {
+    this.#container = document.getElementById(containerId);
+  }
+
+  show(message, duration = 2800) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = message;
+    this.#container.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 300);
+    }, duration);
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// UTILITY FUNCTIONS (DRY)
+// ═══════════════════════════════════════════════
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60).toString().padStart(2,'0');
+  const s = (seconds % 60).toString().padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+function getPerformanceFeedback(seconds) {
+  if (seconds < 60)   return "Every minute counts. Start stronger next time! 🌱";
+  if (seconds < 300)  return "Good start! Try to push for longer sessions! ⚡";
+  if (seconds < 600)  return "Solid session! You're building momentum! 🔥";
+  if (seconds < 1800) return "Great focus! You're doing amazing! 💪";
+  return "Outstanding dedication! You're a study champion! 🏆";
+}
+
+function mapSubjectToClass(subject, type) {
+  const stemSubjects = ['Mathematics', 'Science', 'Coding'];
+  const techSubjects = ['Coding'];
+  const creativeSubjects = ['Drawing', 'Music', 'Writing'];
+
+  if (type === 'academic') {
+    if (stemSubjects.includes(subject)) return new STEMSession(subject);
+    return new HumanitiesSession(subject);
+  } else {
+    if (techSubjects.includes(subject)) return new TechnicalSkill(subject, 'Code Editor');
+    if (creativeSubjects.includes(subject)) return new CreativeSkill(subject, subject);
+    return new TechnicalSkill(subject);
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// APP STATE — instances
+// ═══════════════════════════════════════════════
+const manager = new SessionManager();
+const toast   = new ToastManager('toast-container');
+
+let currentType    = 'academic';
+let selectedSubject = '';
+let motivationPoints = 0;
+
+const timerCtrl = new TimerController(
+  // onTick — update UI
+  (elapsed) => {
+    const disp = document.getElementById('timer-display');
+    disp.textContent = formatTime(elapsed);
+    disp.classList.add('pulse');
+    setTimeout(() => disp.classList.remove('pulse'), 500);
+    // ring
+    const ring = document.getElementById('ring-fg');
+    const max = 439.82;
+    const offset = max - Math.min((elapsed / 3600) * max, max);
+    ring.style.strokeDashoffset = offset;
+  },
+  // onMotivation — show random message from current session (polymorphism!)
+  (msg) => {
+    motivationPoints++;
+    const el = document.getElementById('motivation-msg');
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.textContent = msg;
+      el.style.opacity = '1';
+      toast.show('💬 ' + msg, 4000);
+    }, 400);
+  }
+);
+
+
+// ═══════════════════════════════════════════════
+// SCREEN NAVIGATION (UI Layer — separate from logic)
+// ═══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const isUml = id === 'screen-uml';
+  document.getElementById('app-nav').style.display = isUml ? 'none' : '';
+}
+
+function showHome()    { showScreen('screen-home'); updateStreak(); }
+function showSetup()   { resetSetup(); showScreen('screen-setup'); }
+function showHistory() { renderHistory(); showScreen('screen-history'); }
+function showUML()     { showScreen('screen-uml'); }
+function hideUML()     { showHome(); }
+
+
+// ═══════════════════════════════════════════════
+// SETUP SCREEN LOGIC
+// ═══════════════════════════════════════════════
+function switchType(type) {
+  currentType = type;
+  selectedSubject = '';
+  document.querySelectorAll('.subject-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('custom-subject').value = '';
+  document.getElementById('start-btn').disabled = true;
+
+  document.getElementById('tab-academic').classList.toggle('active', type === 'academic');
+  document.getElementById('tab-skill').classList.toggle('active', type === 'skill');
+  document.getElementById('academic-subjects').style.display = type === 'academic' ? 'grid' : 'none';
+  document.getElementById('skill-subjects').style.display    = type === 'skill' ? 'grid' : 'none';
+}
+
+function selectSubject(btn, name) {
+  document.querySelectorAll('.subject-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedSubject = name;
+  document.getElementById('custom-subject').value = '';
+  document.getElementById('start-btn').disabled = false;
+}
+
+function onCustomInput() {
+  const val = document.getElementById('custom-subject').value.trim();
+  document.querySelectorAll('.subject-btn').forEach(b => b.classList.remove('selected'));
+  selectedSubject = val;
+  document.getElementById('start-btn').disabled = val.length === 0;
+}
+
+function resetSetup() {
+  selectedSubject = '';
+  currentType = 'academic';
+  document.querySelectorAll('.subject-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('custom-subject').value = '';
+  document.getElementById('start-btn').disabled = true;
+  switchType('academic');
+}
+
+function startSession() {
+  if (!selectedSubject) return;
+
+  // Factory: creates correct OOP class based on selection (Polymorphism in action)
+  const session = mapSubjectToClass(selectedSubject, currentType);
+
+  manager.addSession(session);
+  timerCtrl.bind(session);
+  motivationPoints = 0;
+
+  // Update timer screen UI
+  document.getElementById('timer-subject').textContent = session.getSubject();
+  document.getElementById('timer-type').textContent    = session.getSessionType();
+  document.getElementById('timer-display').textContent = '00:00';
+  document.getElementById('ring-fg').style.strokeDashoffset = '439.82';
+  document.getElementById('motivation-msg').textContent = '';
+
+  setTimerBtns(false, true, true, false);
+  updateBadge('idle');
+
+  showScreen('screen-timer');
+  toast.show("Let's go! 💪 Session ready.");
+}
+
+
+// ═══════════════════════════════════════════════
+// TIMER SCREEN LOGIC
+// ═══════════════════════════════════════════════
+function timerStart() {
+  timerCtrl.start();
+  setTimerBtns(true, false, false, false);
+  updateBadge('running');
+  // First motivation immediately on start (calls the correct class method — polymorphism)
+  const session = manager.getActive();
+  if (session) {
+    const msg = session.getMotivation();
+    document.getElementById('motivation-msg').textContent = msg;
+    toast.show('✨ ' + msg, 3500);
+  }
+}
+
+function timerPause() {
+  timerCtrl.pause();
+  setTimerBtns(false, false, false, false);
+  updateBadge('paused');
+  toast.show('⏸ Paused. Take a breath!');
+}
+
+function endSession() {
+  const elapsed = timerCtrl.stop();
+  const session = manager.getActive();
+  if (!session) return;
+
+  manager.finishActive();
+
+  // Populate summary screen
+  document.getElementById('sum-subject').textContent = session.getSubject();
+  document.getElementById('sum-type').textContent    = session.getSessionType();
+  document.getElementById('sum-time').textContent    = formatTime(elapsed);
+  document.getElementById('sum-points').textContent  = motivationPoints + ' boosts received';
+  document.getElementById('sum-feedback').textContent = getPerformanceFeedback(elapsed);
+
+  showScreen('screen-summary');
+  toast.show('✅ Session saved!', 3000);
+}
+
+function setTimerBtns(startDisabled, pauseDisabled, endDisabled, startVisible) {
+  document.getElementById('btn-start').disabled = startDisabled;
+  document.getElementById('btn-pause').disabled = pauseDisabled;
+  document.getElementById('btn-end').disabled   = endDisabled;
+}
+
+function updateBadge(state) {
+  const badge = document.getElementById('status-badge');
+  badge.className = 'status-badge ' + state;
+  const dot = badge.querySelector('.dot');
+  const labels = { idle: 'Idle', running: 'Running', paused: 'Paused' };
+  dot.className = 'dot' + (state === 'running' ? ' blink' : '');
+  badge.innerHTML = `<span class="dot${state==='running'?' blink':''}"></span> ${labels[state]}`;
+}
+
+
+// ═══════════════════════════════════════════════
+// HISTORY SCREEN
+// ═══════════════════════════════════════════════
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const sessions = manager.getHistory();
+  if (sessions.length === 0) {
+    list.innerHTML = '<div class="empty-state">No sessions yet. Start studying! 📚</div>';
+    return;
+  }
+  list.innerHTML = sessions.reverse().map(s => `
+    <div class="history-item">
+      <div class="history-item-left">
+        <div class="history-item-subject">${s.getSubject()}</div>
+        <div class="history-item-type">${s.getSessionType()}</div>
+      </div>
+      <div class="history-item-time">${formatTime(s.getElapsed())}</div>
+    </div>
+  `).join('');
+}
+
+
+// ═══════════════════════════════════════════════
+// HOME — Streak display
+// ═══════════════════════════════════════════════
+function updateStreak() {
+  const count = manager.getCount();
+  const total = manager.getTotalTime();
+  const el = document.getElementById('streak-text');
+  if (count === 0) {
+    el.textContent = "Start your first session today!";
+  } else {
+    el.textContent = `${count} session${count>1?'s':''} completed · ${formatTime(total)} total`;
+  }
+}
+
+// Initialize
+showHome();
+</script>
+</body>
+</html>
