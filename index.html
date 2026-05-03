@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyFlow — OOP Session Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- Background decorations -->
+<div class="dot-grid"></div>
+<div id="toast-container"></div>
+
+<!-- ══════════════════════════════════════
+     NAVIGATION BAR
+══════════════════════════════════════ -->
+<nav id="app-nav">
+  <span class="nav-logo">StudyFlow</span>
+  <div class="nav-right">
+    <span class="nav-level-pill" id="nav-level-pill">🌱 Lv.0 Newbie</span>
+    <button class="nav-btn" onclick="showHistory()">📜 History</button>
+    <button class="nav-btn" onclick="showUML()">📐 UML Diagram</button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════
+     SCREEN 1 — HOME / DASHBOARD
+══════════════════════════════════════ -->
+<div id="screen-home" class="screen active">
+  <div class="screen-inner">
+    <div class="card">
+
+      <!-- Hero -->
+      <div style="text-align:center; margin-bottom:2rem;">
+        <div style="font-size:3rem; margin-bottom:0.75rem;">📚</div>
+        <h1 class="logo">StudyFlow</h1>
+        <p class="subtitle" style="margin-top:0.6rem; font-size:1rem;">
+          Your guided, OOP-powered study experience
+        </p>
+      </div>
+
+      <!-- Level system -->
+      <div class="level-section">
+        <div class="level-top">
+          <span class="level-badge" id="level-badge">🌱 Lv.0 Newbie</span>
+          <span class="level-xp" id="level-xp">0 / 60 XP</span>
+        </div>
+        <div class="level-bar-track">
+          <div class="level-bar-fill" id="level-bar"></div>
+        </div>
+      </div>
+
+      <!-- Streak banner -->
+      <div class="streak-banner">
+        🔥 <span id="streak-text">Start your first session today!</span>
+      </div>
+
+      <!-- Actions -->
+      <button class="btn btn-primary" onclick="showSetup()">
+        ➕ &nbsp; Add New Session
+      </button>
+      <button class="btn btn-secondary" onclick="showHistory()">
+        📜 &nbsp; View Session History
+      </button>
+      <button class="btn btn-ghost" onclick="showUML()">
+        📐 &nbsp; View UML Diagram
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 2 — SESSION SETUP
+══════════════════════════════════════ -->
+<div id="screen-setup" class="screen">
+  <div class="screen-inner">
+    <div class="card">
+      <h2 class="title">New Session</h2>
+      <p class="subtitle">What kind of studying are you doing today?</p>
+
+      <!-- Type tabs -->
+      <div class="tab-row">
+        <button class="tab active" id="tab-academic" onclick="switchType('academic')">
+          📘 Academic
+        </button>
+        <button class="tab" id="tab-skill" onclick="switchType('skill')">
+          🎯 Skill
+        </button>
+      </div>
+
+      <!-- Academic subjects -->
+      <div id="academic-subjects" class="subject-grid">
+        <button class="subject-btn" onclick="selectSubject(this, 'Mathematics')">📐 Math</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'Science')">🔬 Science</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'History')">📜 History</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'English')">✍️ English</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'Filipino')">🇵🇭 Filipino</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'MAPEH')">🎵 MAPEH</button>
+      </div>
+
+      <!-- Skill subjects -->
+      <div id="skill-subjects" class="subject-grid" style="display:none;">
+        <button class="subject-btn" onclick="selectSubject(this, 'Coding')">💻 Coding</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'Drawing')">🎨 Drawing</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'Music')">🎸 Music</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'Writing')">✒️ Writing</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'Chess')">♟️ Chess</button>
+        <button class="subject-btn" onclick="selectSubject(this, 'Language')">🗣️ Language</button>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- Custom subject -->
+      <div class="input-group">
+        <label class="input-label">Or type a custom subject</label>
+        <input
+          type="text"
+          class="input"
+          id="custom-subject"
+          placeholder="e.g. Quantum Physics, Piano, etc…"
+          oninput="onCustomInput()"
+        />
+      </div>
+
+      <!-- Actions -->
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="showHome()">← Back</button>
+        <button class="btn btn-primary" id="start-btn" onclick="startSession()" disabled>
+          Start Session →
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 3 — TIMER (Active Work)
+══════════════════════════════════════ -->
+<div id="screen-timer" class="screen">
+  <div class="screen-inner">
+    <div class="card">
+
+      <div class="timer-wrap">
+        <div class="timer-subject" id="timer-subject">—</div>
+        <div class="timer-type"   id="timer-type">—</div>
+
+        <!-- SVG ring + clock -->
+        <div class="ring-wrap">
+          <svg width="200" height="200" viewBox="0 0 200 200">
+            <defs>
+              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%"   stop-color="#6c8eff"/>
+                <stop offset="100%" stop-color="#3de8c8"/>
+              </linearGradient>
+            </defs>
+            <circle class="ring-bg" cx="100" cy="100" r="90"/>
+            <circle class="ring-fg" id="ring-fg" cx="100" cy="100" r="90"
+              stroke-dasharray="565.49" stroke-dashoffset="565.49"/>
+          </svg>
+          <div class="ring-inner">
+            <div class="timer-display" id="timer-display">00:00</div>
+          </div>
+        </div>
+
+        <!-- Status -->
+        <div>
+          <span class="status-badge idle" id="status-badge">
+            <span class="dot"></span> Idle
+          </span>
+        </div>
+      </div>
+
+      <!-- Timer buttons -->
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-start" onclick="timerStart()">▶ Start</button>
+        <button class="btn btn-secondary" id="btn-pause" onclick="timerPause()" disabled>⏸ Pause</button>
+      </div>
+      <button class="btn btn-danger" id="btn-end" onclick="endSession()" disabled>
+        ⏹ &nbsp; End Session
+      </button>
+
+      <!-- Motivation message (polymorphic output) -->
+      <div class="motivation-msg" id="motivation-msg"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 4 — SUMMARY
+══════════════════════════════════════ -->
+<div id="screen-summary" class="screen">
+  <div class="screen-inner">
+    <div class="card">
+
+      <div style="text-align:center; margin-bottom:1.75rem;">
+        <div style="font-size:3rem;">🎉</div>
+        <h2 class="title" style="margin-top:0.6rem;">Session Complete!</h2>
+        <p class="subtitle">Here's how you did</p>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-stat">
+          <div class="summary-stat-label">Subject</div>
+          <div class="summary-stat-value accent" id="sum-subject">—</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-label">Session Type</div>
+          <div class="summary-stat-value small" id="sum-type">—</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-label">Total Time</div>
+          <div class="summary-stat-value gold" id="sum-time">—</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-label">XP Earned</div>
+          <div class="summary-stat-value green" id="sum-points">—</div>
+        </div>
+        <div class="summary-stat full">
+          <div class="summary-stat-label">Current Level</div>
+          <div class="summary-stat-value" id="sum-level">—</div>
+        </div>
+        <div class="summary-stat full">
+          <div class="summary-stat-label">Total XP</div>
+          <div class="summary-stat-value small" id="sum-xp-total">—</div>
+        </div>
+        <div class="summary-stat full">
+          <div class="summary-stat-label">Session Summary</div>
+          <div class="summary-stat-value small" id="sum-summary">—</div>
+        </div>
+      </div>
+
+      <div class="sum-feedback" id="sum-feedback"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="showHome()">🏠 Home</button>
+        <button class="btn btn-primary" onclick="showSetup()">➕ New Session</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 5 — HISTORY
+══════════════════════════════════════ -->
+<div id="screen-history" class="screen">
+  <div class="screen-inner">
+    <div class="card">
+      <h2 class="title">Session History</h2>
+      <p class="subtitle">All your past study sessions</p>
+      <div class="history-list" id="history-list"></div>
+      <div style="margin-top:1.25rem;">
+        <button class="btn btn-ghost" onclick="showHome()">← Back to Home</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 6 — UML DIAGRAM
+══════════════════════════════════════ -->
+<div id="screen-uml" class="screen" style="padding-top:0; justify-content:flex-start;">
+  <button class="btn btn-ghost uml-back" onclick="hideUML()">← Back</button>
+  <div class="uml-page">
+
+    <!-- Header -->
+    <div class="uml-section-card">
+      <div class="uml-section-title">📐 UML Class Diagram — StudyFlow</div>
+      <p style="font-size:0.875rem; color:var(--muted);">
+        Demonstrates all 4 OOP pillars: <strong style="color:var(--text);">Abstraction</strong>,
+        <strong style="color:var(--text);">Encapsulation</strong>,
+        <strong style="color:var(--text);">Inheritance</strong>, and
+        <strong style="color:var(--text);">Polymorphism</strong>.
+      </p>
+    </div>
+
+    <!-- Abstract class -->
+    <div class="uml-section-card">
+      <div class="uml-section-title">Abstract Class (Abstraction)</div>
+      <div class="uml-row" style="justify-content:center;">
+        <div class="uml-box" style="max-width:300px;">
+          <div class="uml-box-header abstract-h">«abstract» StudySession</div>
+          <div class="uml-box-section">
+            <div class="uml-lbl">Private Attributes (Encapsulation)</div>
+            <div class="uml-f prv">- subject: string</div>
+            <div class="uml-f prv">- startTime: Date | null</div>
+            <div class="uml-f prv">- endTime: Date | null</div>
+            <div class="uml-f prv">- elapsedSeconds: number</div>
+          </div>
+          <div class="uml-box-section">
+            <div class="uml-lbl">Public Methods</div>
+            <div class="uml-f pub">+ getSubject(): string</div>
+            <div class="uml-f pub">+ getElapsed(): number</div>
+            <div class="uml-f pub">+ setElapsed(s): void</div>
+            <div class="uml-f pub">+ start(): void</div>
+            <div class="uml-f pub">+ end(): void</div>
+          </div>
+          <div class="uml-box-section">
+            <div class="uml-lbl">Abstract Methods (must override)</div>
+            <div class="uml-f abs">~ getSessionType(): string</div>
+            <div class="uml-f abs">~ getSummary(): string</div>
+            <div class="uml-f abs">~ getMotivation(): string</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Parent classes -->
+    <div class="uml-section-card">
+      <div class="uml-section-title">Parent Classes (Inheritance from StudySession)</div>
+      <div class="uml-row" style="justify-content:center; gap:3rem;">
+        <div class="uml-col">
+          <div class="uml-box">
+            <div class="uml-box-header parent-h">AcademicSession</div>
+            <div class="uml-box-section">
+              <div class="uml-f prv">- subjectIcon: string</div>
+            </div>
+            <div class="uml-box-section">
+              <div class="uml-f pub">+ getSubjectIcon(): string</div>
+              <div class="uml-f pub">+ getSessionType(): string</div>
+              <div class="uml-f pub">+ getSummary(): string</div>
+              <div class="uml-f pub">+ getMotivation(): string</div>
+            </div>
+          </div>
+        </div>
+        <div class="uml-col">
+          <div class="uml-box">
+            <div class="uml-box-header parent-h">SkillSession</div>
+            <div class="uml-box-section">
+              <div class="uml-f prv">- skillLevel: string</div>
+            </div>
+            <div class="uml-box-section">
+              <div class="uml-f pub">+ getSkillLevel(): string</div>
+              <div class="uml-f pub">+ setSkillLevel(): void</div>
+              <div class="uml-f pub">+ getSessionType(): string</div>
+              <div class="uml-f pub">+ getSummary(): string</div>
+              <div class="uml-f pub">+ getMotivation(): string</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Child classes -->
+    <div class="uml-section-card">
+      <div class="uml-section-title">Child Classes (Polymorphism — each overrides getMotivation())</div>
+      <div class="uml-row" style="justify-content:center;">
+
+        <div class="uml-col">
+          <div style="font-size:0.75rem; color:var(--muted); text-align:center;">extends AcademicSession</div>
+          <div class="uml-box">
+            <div class="uml-box-header child-h">STEMSession</div>
+            <div class="uml-box-section">
+              <div class="uml-f prv">- difficulty: string</div>
+            </div>
+            <div class="uml-box-section">
+              <div class="uml-f pub">+ getDifficulty(): string</div>
+              <div class="uml-f pub" style="color:#ffb547;">↩ getMotivation(): string</div>
+            </div>
+          </div>
+          <div class="uml-box">
+            <div class="uml-box-header child-h">HumanitiesSession</div>
+            <div class="uml-box-section">
+              <div class="uml-f prv">- theme: string</div>
+            </div>
+            <div class="uml-box-section">
+              <div class="uml-f pub">+ getTheme(): string</div>
+              <div class="uml-f pub" style="color:#ffb547;">↩ getMotivation(): string</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="uml-col">
+          <div style="font-size:0.75rem; color:var(--muted); text-align:center;">extends SkillSession</div>
+          <div class="uml-box">
+            <div class="uml-box-header child-h">TechnicalSkill</div>
+            <div class="uml-box-section">
+              <div class="uml-f prv">- tool: string</div>
+            </div>
+            <div class="uml-box-section">
+              <div class="uml-f pub">+ getTool(): string</div>
+              <div class="uml-f pub" style="color:#ffb547;">↩ getMotivation(): string</div>
+            </div>
+          </div>
+          <div class="uml-box">
+            <div class="uml-box-header child-h">CreativeSkill</div>
+            <div class="uml-box-section">
+              <div class="uml-f prv">- medium: string</div>
+            </div>
+            <div class="uml-box-section">
+              <div class="uml-f pub">+ getMedium(): string</div>
+              <div class="uml-f pub" style="color:#ffb547;">↩ getMotivation(): string</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Support classes -->
+    <div class="uml-section-card">
+      <div class="uml-section-title">Support Classes (Business Logic, DRY Principle)</div>
+      <div class="uml-row" style="justify-content:center; gap:1.5rem;">
+        <div class="uml-box" style="max-width:240px;">
+          <div class="uml-box-header manager-h">SessionManager</div>
+          <div class="uml-box-section">
+            <div class="uml-f prv">- sessions: StudySession[]</div>
+            <div class="uml-f prv">- activeSession: StudySession|null</div>
+          </div>
+          <div class="uml-box-section">
+            <div class="uml-f pub">+ addSession(s): void</div>
+            <div class="uml-f pub">+ finishActive(): void</div>
+            <div class="uml-f pub">+ getHistory(): StudySession[]</div>
+            <div class="uml-f pub">+ getActive(): StudySession|null</div>
+            <div class="uml-f pub">+ getTotalTime(): number</div>
+          </div>
+        </div>
+        <div class="uml-box" style="max-width:240px;">
+          <div class="uml-box-header manager-h">TimerController</div>
+          <div class="uml-box-section">
+            <div class="uml-f prv">- session: StudySession|null</div>
+            <div class="uml-f prv">- intervalId: number|null</div>
+            <div class="uml-f prv">- running: boolean</div>
+          </div>
+          <div class="uml-box-section">
+            <div class="uml-f pub">+ bind(s): void</div>
+            <div class="uml-f pub">+ start(): void</div>
+            <div class="uml-f pub">+ pause(): void</div>
+            <div class="uml-f pub">+ stop(): number</div>
+          </div>
+        </div>
+        <div class="uml-box" style="max-width:240px;">
+          <div class="uml-box-header manager-h">LevelSystem</div>
+          <div class="uml-box-section">
+            <div class="uml-f prv">- xp: number</div>
+            <div class="uml-f prv">- LEVELS: LevelDef[]</div>
+          </div>
+          <div class="uml-box-section">
+            <div class="uml-f pub">+ getXP(): number</div>
+            <div class="uml-f pub">+ getLevel(): number</div>
+            <div class="uml-f pub">+ getLevelTitle(): string</div>
+            <div class="uml-f pub">+ addXP(seconds): number</div>
+            <div class="uml-f pub">+ getProgressPercent(): number</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OOP Pillars -->
+    <div class="uml-section-card">
+      <div class="uml-section-title">🧠 OOP Pillars Applied</div>
+      <div class="oop-grid">
+        <div class="oop-pill">
+          <div class="oop-pill-title" style="color:var(--accent);">🔒 Encapsulation</div>
+          <div class="oop-pill-body">All attributes are <code>private</code>. Data is only accessed through public getters and setters. The UI never touches raw fields directly.</div>
+        </div>
+        <div class="oop-pill">
+          <div class="oop-pill-title" style="color:var(--success);">🧬 Inheritance</div>
+          <div class="oop-pill-body"><code>StudySession</code> (abstract) → <code>AcademicSession / SkillSession</code> (parents) → 4 child classes. Each level inherits and extends the one above.</div>
+        </div>
+        <div class="oop-pill">
+          <div class="oop-pill-title" style="color:var(--accent2);">🎭 Polymorphism</div>
+          <div class="oop-pill-body">Every child class overrides <code>getMotivation()</code>. The timer calls the same method on any session object — but gets a different result based on its actual class.</div>
+        </div>
+        <div class="oop-pill">
+          <div class="oop-pill-title" style="color:var(--accent3);">🌫️ Abstraction</div>
+          <div class="oop-pill-body"><code>StudySession</code> is abstract and cannot be instantiated. It enforces a contract: all subclasses MUST implement <code>getSessionType()</code>, <code>getSummary()</code>, and <code>getMotivation()</code>.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /uml-page -->
+</div>
+
+<!-- ══════════════════════════════════════
+     COMPILED TypeScript → JavaScript
+══════════════════════════════════════ -->
+<script src="app.js"></script>
+
+</body>
+</html>
